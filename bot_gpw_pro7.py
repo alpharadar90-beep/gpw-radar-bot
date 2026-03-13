@@ -590,3 +590,4 @@ while True:
         print("BOT ERROR:", e)
         print("Restart in 10 seconds...")
         time.sleep(10)
+        # update
