@@ -8,7 +8,7 @@ import telebot
 import yfinance as yf
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN = "8701495625:AAH1dqGAwNfBpjaY1SWKUXw6qdAk36t8nH4"
+TOKEN = "8514506509:AAFDIZKCDuDN9sWwW-hMgX3xTP9_HyQGfG0"
 ADMIN_ID = 123456789
 FREE_CHANNEL = "@gpwradar"
 PRO_CHANNEL = "@gpwradarpro"
