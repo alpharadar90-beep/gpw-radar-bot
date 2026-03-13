@@ -362,6 +362,67 @@ def build_early_breakout(): return compose_message("Early Breakout Detector", ea
 def build_crash_detector(): return compose_message("Crash Detector", crash_detector() or ["Brak crash alertow teraz."])
 def build_top_volume(): return compose_message("Top Volume Ranking", top_volume_ranking())
 
+def daily_market_brief_lines():
+    score, label = market_score()
+    heat = sector_strength()[:4]
+    gain = top_gainers(4)
+    lose = top_losers(4)
+    macro = macro_rows(5)
+    lines = [f"Market Strength: {score}/10 ({label})", "", "Top Gainers"]
+    lines += [f"- {name} {chg:+.2f}%" for _, name, chg, _ in gain]
+    lines += ["", "Top Losers"]
+    lines += [f"- {name} {chg:+.2f}%" for _, name, chg, _ in lose]
+    lines += ["", "Sector Heatmap"]
+    lines += [f"- {sec} {val:+.2f}%" for sec, val in heat]
+    lines += ["", "Macro Focus"]
+    lines += [f"- {name} {chg:+.2f}%" for _, name, chg, _ in macro]
+    return lines
+
+def smart_money_flow_lines(limit: int = 6):
+    items = []
+    for symbol, name in GPW_WATCHLIST.items():
+        ratio = get_volume_spike_ratio(symbol)
+        chg = get_daily_change_pct(symbol)
+        price = get_last_price(symbol)
+        if None in (ratio, chg, price):
+            continue
+        flow = round((ratio * 2.0) + max(chg, 0), 2)
+        if ratio >= 1.8 and chg > 0:
+            items.append((name, flow, ratio, chg, price))
+    items.sort(key=lambda x: x[1], reverse=True)
+    return [f"{name} | Flow {flow:.2f} | Vol x{ratio:.2f} | {chg:+.2f}% | {price:.2f} PLN" for name, flow, ratio, chg, price in items[:limit]]
+
+def ai_signal_score_lines(limit: int = 6):
+    items = []
+    wig = get_daily_change_pct(WIG20_SYMBOL) or 0.0
+    for symbol, name in GPW_WATCHLIST.items():
+        chg = get_daily_change_pct(symbol)
+        mom = get_momentum_3d(symbol)
+        vol = get_volume_spike_ratio(symbol)
+        price = get_last_price(symbol)
+        if None in (chg, mom, vol, price):
+            continue
+        rs = chg - wig
+        score = max(0, min(10, round((chg * 0.8) + (mom * 0.6) + (vol * 1.2) + (rs * 0.4), 2)))
+        items.append((name, score, chg, mom, vol, price))
+    items.sort(key=lambda x: x[1], reverse=True)
+    return [f"{name} | Score {score:.2f}/10 | {chg:+.2f}% | Mom {mom:+.2f}% | Vol x{vol:.2f} | {price:.2f} PLN" for name, score, chg, mom, vol, price in items[:limit]]
+
+def build_daily_market_brief():
+    return compose_message("Daily Market Brief", daily_market_brief_lines())
+
+def build_smart_money_flow():
+    lines = smart_money_flow_lines()
+    if not lines:
+        lines = ["Brak wyraznego smart money teraz."]
+    return compose_message("Smart Money Flow", lines)
+
+def build_ai_signal_score():
+    lines = ai_signal_score_lines()
+    if not lines:
+        lines = ["Brak sygnalow scoringowych teraz."]
+    return compose_message("AI Signal Score", lines)
+
 def vip_keyboard():
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("Kup PRO", callback_data="vip_buy"))
@@ -375,7 +436,7 @@ def cb_handler(call):
 
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
-    text = "GPW Radar PRO7\n\nKomendy:\n/gpw\n/pulse\n/gainers\n/losers\n/volume\n/momentum\n/macro\n/global\n/heatmap\n/breakouts\n/alerts\n/stats\n/weekly\n/prosignals\n/ai\n/rs\n/early\n/crash\n/topvolume\n/vip\n/payment"
+    text = "GPW Radar PRO8\n\nKomendy:\n/gpw\n/pulse\n/gainers\n/losers\n/volume\n/momentum\n/macro\n/global\n/heatmap\n/breakouts\n/alerts\n/stats\n/weekly\n/prosignals\n/ai\n/rs\n/early\n/crash\n/topvolume\n/brief\n/smartmoney\n/aiscore\n/vip\n/payment"
     bot.reply_to(message, text, reply_markup=vip_keyboard())
 
 @bot.message_handler(commands=["gpw"])
@@ -418,9 +479,18 @@ def cmd_early(message): bot.reply_to(message, build_early_breakout())
 def cmd_crash(message): bot.reply_to(message, build_crash_detector())
 @bot.message_handler(commands=["topvolume"])
 def cmd_topvolume(message): bot.reply_to(message, build_top_volume())
+@bot.message_handler(commands=["brief"])
+def cmd_brief(message): bot.reply_to(message, build_daily_market_brief())
+
+@bot.message_handler(commands=["smartmoney"])
+def cmd_smartmoney(message): bot.reply_to(message, build_smart_money_flow())
+
+@bot.message_handler(commands=["aiscore"])
+def cmd_aiscore(message): bot.reply_to(message, build_ai_signal_score())
+
 @bot.message_handler(commands=["vip"])
 def cmd_vip(message):
-    bot.reply_to(message, f"Markets PRO\nCena: {PRICE_PLN} PLN / miesiac\n\nCo dostajesz:\n- GPW Update\n- Top Gainers / Losers\n- Volume Spike\n- Momentum\n- Macro / Global Radar\n- Heatmap\n- Breakouts\n- Move Alerts\n- Daily Stats\n- Weekly Winners\n- PRO Signal Pack\n- AI Insight\n- Relative Strength vs WIG20\n- Early Breakout Detector\n- Crash Detector\n- Top Volume Ranking\n\n/payment", reply_markup=vip_keyboard())
+    bot.reply_to(message, f"Markets PRO\nCena: {PRICE_PLN} PLN / miesiac\n\nCo dostajesz:\n- GPW Update\n- Top Gainers / Losers\n- Volume Spike\n- Momentum\n- Macro / Global Radar\n- Heatmap\n- Breakouts\n- Move Alerts\n- Daily Stats\n- Weekly Winners\n- PRO Signal Pack\n- AI Insight\n- Relative Strength vs WIG20\n- Early Breakout Detector\n- Crash Detector\n- Top Volume Ranking\n- Daily Market Brief\n- Smart Money Flow\n- AI Signal Score\n\n/payment", reply_markup=vip_keyboard())
 @bot.message_handler(commands=["payment"])
 def cmd_payment(message): bot.reply_to(message, f"Platnosc: {PAYMENT_INFO}")
 
@@ -477,6 +547,10 @@ def auto_early_breakout(): safe_send("pro", build_early_breakout(), "early")
 def auto_crash_detector(): safe_send("pro", build_crash_detector(), "crash")
 def auto_top_volume(): safe_send("pro", build_top_volume(), "topvolume")
 
+def auto_daily_market_brief(): safe_send("pro", build_daily_market_brief(), "brief")
+def auto_smart_money_flow(): safe_send("pro", build_smart_money_flow(), "smartmoney")
+def auto_ai_signal_score(): safe_send("pro", build_ai_signal_score(), "aiscore")
+
 threading.Thread(target=run_every, args=(30, auto_free_pulse, "free_pulse_thread"), daemon=True).start()
 threading.Thread(target=run_every, args=(90, auto_free_gainers, "free_gainers_thread"), daemon=True).start()
 threading.Thread(target=run_every, args=(90, auto_free_losers, "free_losers_thread"), daemon=True).start()
@@ -501,13 +575,16 @@ threading.Thread(target=run_every, args=(180, auto_relative_strength, "rs_thread
 threading.Thread(target=run_every, args=(180, auto_early_breakout, "early_thread"), daemon=True).start()
 threading.Thread(target=run_every, args=(180, auto_crash_detector, "crash_thread"), daemon=True).start()
 threading.Thread(target=run_every, args=(180, auto_top_volume, "topvolume_thread"), daemon=True).start()
+threading.Thread(target=run_every, args=(240, auto_smart_money_flow, "smartmoney_thread"), daemon=True).start()
+threading.Thread(target=run_every, args=(240, auto_ai_signal_score, "aiscore_thread"), daemon=True).start()
+threading.Thread(target=run_daily, args=(MORNING_BRIEF_HOUR, MORNING_BRIEF_MINUTE + 1, auto_daily_market_brief, "brief_thread"), daemon=True).start()
 threading.Thread(target=run_daily, args=(MORNING_BRIEF_HOUR, MORNING_BRIEF_MINUTE, auto_morning_brief, "morning_thread"), daemon=True).start()
 threading.Thread(target=run_daily, args=(MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, auto_market_close, "close_thread"), daemon=True).start()
 threading.Thread(target=run_daily, args=(MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE + 1, auto_daily_stats, "stats_thread"), daemon=True).start()
 
 while True:
     try:
-        print("GPW & Markets PRO7 bot started...")
+        print("GPW & Markets PRO8 bot started...")
         bot.infinity_polling(timeout=60, long_polling_timeout=60)
     except Exception as e:
         print("BOT ERROR:", e)
