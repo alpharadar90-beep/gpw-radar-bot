@@ -319,6 +319,22 @@ def brief(m):
 
 
 @bot.message_handler(commands=['vip'])
+@bot.message_handler(commands=['trial'])
+def trial(m):
+
+    bot.reply_to(
+        m,
+        "🚀 Trial PRO aktywowany na 24h\n\n"
+        "Masz dostęp do:\n"
+        "- Alerts\n"
+        "- Volume Spike\n"
+        "- AI Insight\n"
+        "- Morning Brief\n"
+        "- Market Close\n\n"
+        "Jeśli chcesz pełny dostęp:\n"
+        "/vip"
+    )
+
 def vip(m):
 
     bot.reply_to(m,
