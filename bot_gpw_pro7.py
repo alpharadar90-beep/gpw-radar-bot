@@ -138,9 +138,21 @@ def fmt_price(symbol: str, price: float) -> str:
     if symbol.startswith("^"): return f"{price:.2f}"
     return f"${price:.2f}"
 
+def generate_x_post(text):
+    return f"""🚨 GPW Market Alert
+
+{text}
+
+More signals →
+https://t.me/gpwradarpro
+
+#GPW #Gielda #Trading"""
+    
 def safe_send(target: str, text: str, label: str) -> None:
     try:
         bot.send_message(FREE_CHANNEL if target == "free" else PRO_CHANNEL, text)
+        x_post = generate_x_post(text)
+bot.send_message(ADMIN_ID, f"POST NA X:\n{x_post}")
     except Exception as e:
         print(f"{label} error: {e}")
 
