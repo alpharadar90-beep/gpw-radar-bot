@@ -15,457 +15,418 @@ PRO_CHANNEL = -1003547751553
 
 PRICE_PLN = 99
 
+# godziny raportów
 MORNING_BRIEF_HOUR = 8
 MORNING_BRIEF_MINUTE = 45
+
 MARKET_CLOSE_HOUR = 17
 MARKET_CLOSE_MINUTE = 10
 
+# interwały automatycznych postów
 FREE_PULSE_INTERVAL_MIN = 30
-PRO_PULSE_INTERVAL_MIN = 30
-BREAKOUT_INTERVAL_MIN = 60
+PRO_GAINERS_INTERVAL_MIN = 30
+ALERT_INTERVAL_MIN = 60
 VOLUME_INTERVAL_MIN = 60
-ALERT_INTERVAL_MIN = 45
 
 ALERT_MOVE_PCT = 3.0
 ALERT_DROP_PCT = -3.0
 ALERT_VOLUME_SPIKE = 2.0
 
 WATCHLIST: Dict[str, str] = {
-    "KGH.WA": "KGHM",
-    "PKN.WA": "Orlen",
-    "PKO.WA": "PKO BP",
-    "CDR.WA": "CD Projekt",
-    "PZU.WA": "PZU",
-    "PEO.WA": "Pekao",
-    "ALE.WA": "Allegro",
-    "PGE.WA": "PGE",
-    "DNP.WA": "Dino",
-    "XTB.WA": "XTB",
-    "LPP.WA": "LPP",
-    "JSW.WA": "JSW",
-    "BDX.WA": "Budimex",
-    "MBK.WA": "mBank",
-    "SPL.WA": "Santander PL",
-    "ING.WA": "ING BSK",
+"KGH.WA":"KGHM",
+"PKN.WA":"Orlen",
+"PKO.WA":"PKO BP",
+"CDR.WA":"CD Projekt",
+"PZU.WA":"PZU",
+"PEO.WA":"Pekao",
+"ALE.WA":"Allegro",
+"PGE.WA":"PGE",
+"DNP.WA":"Dino",
+"XTB.WA":"XTB",
+"LPP.WA":"LPP",
+"JSW.WA":"JSW",
 }
 
-MACRO_SYMBOLS: Dict[str, str] = {
-    "GC=F": "Gold",
-    "SI=F": "Silver",
-    "CL=F": "Oil",
-    "NG=F": "Natural Gas",
-    "^GSPC": "S&P 500",
-    "^IXIC": "NASDAQ",
-    "^GDAXI": "DAX",
-    "EURUSD=X": "EUR/USD",
-    "EURPLN=X": "EUR/PLN",
-    "USDPLN=X": "USD/PLN",
-    "BTC-USD": "Bitcoin",
-}
+bot = telebot.TeleBot(TOKEN)
 
-bot = telebot.TeleBot(TOKEN, parse_mode=None)
+# --------------------------
+# DATA FUNCTIONS
+# --------------------------
 
-
-def now_label() -> str:
-    return datetime.now().strftime("%H:%M")
-
-
-def safe_history(symbol: str, period: str = "7d", interval: str = "1d"):
+def safe_history(symbol: str, period: str = "3d"):
     try:
-        df = yf.Ticker(symbol).history(period=period, interval=interval, auto_adjust=False)
+        df = yf.Ticker(symbol).history(period=period)
         if df is None or df.empty:
             return None
         return df
-    except Exception:
+    except:
         return None
 
 
 def get_last_price(symbol: str) -> Optional[float]:
-    df = safe_history(symbol, period="3d")
+    df = safe_history(symbol)
     try:
-        return None if df is None else float(df["Close"].iloc[-1])
-    except Exception:
+        return float(df["Close"].iloc[-1])
+    except:
         return None
 
 
-def get_daily_change_pct(symbol: str) -> Optional[float]:
-    df = safe_history(symbol, period="3d")
-    if df is None or len(df) < 2:
-        return None
+def get_daily_change(symbol: str) -> Optional[float]:
+    df = safe_history(symbol)
     try:
-        prev_close = float(df["Close"].iloc[-2])
-        last_close = float(df["Close"].iloc[-1])
-        return None if prev_close == 0 else round((last_close / prev_close - 1) * 100, 2)
-    except Exception:
-        return None
-
-
-def get_volume_spike_ratio(symbol: str) -> Optional[float]:
-    df = safe_history(symbol, period="7d")
-    if df is None or len(df) < 3:
-        return None
-    try:
-        prev_vol = float(df["Volume"].iloc[-2])
-        last_vol = float(df["Volume"].iloc[-1])
-        return None if prev_vol <= 0 else round(last_vol / prev_vol, 2)
-    except Exception:
-        return None
-
-
-def get_momentum_3d(symbol: str) -> Optional[float]:
-    df = safe_history(symbol, period="10d")
-    if df is None or len(df) < 4:
-        return None
-    try:
-        prev = float(df["Close"].iloc[-4])
+        prev = float(df["Close"].iloc[-2])
         last = float(df["Close"].iloc[-1])
-        return None if prev == 0 else round((last / prev - 1) * 100, 2)
-    except Exception:
+        return round((last/prev-1)*100,2)
+    except:
         return None
 
 
-def is_new_high(symbol: str, lookback: int = 20) -> Optional[bool]:
-    df = safe_history(symbol, period=f"{lookback + 7}d")
-    if df is None or len(df) < lookback + 1:
-        return None
+def get_volume_ratio(symbol: str) -> Optional[float]:
+    df = safe_history(symbol,"7d")
     try:
-        closes = df["Close"].tail(lookback + 1)
-        return float(closes.iloc[-1]) > float(closes.iloc[:-1].max())
-    except Exception:
+        prev = float(df["Volume"].iloc[-2])
+        last = float(df["Volume"].iloc[-1])
+        return round(last/prev,2)
+    except:
         return None
 
 
-def is_new_low(symbol: str, lookback: int = 20) -> Optional[bool]:
-    df = safe_history(symbol, period=f"{lookback + 7}d")
-    if df is None or len(df) < lookback + 1:
-        return None
-    try:
-        closes = df["Close"].tail(lookback + 1)
-        return float(closes.iloc[-1]) < float(closes.iloc[:-1].min())
-    except Exception:
-        return None
+def gpw_rows():
 
+    rows=[]
 
-def fmt_price(symbol: str, price: float) -> str:
-    if symbol.endswith(".WA"):
-        return f"{price:.2f} PLN"
-    if symbol.endswith("=X"):
-        return f"{price:.4f}"
-    if symbol.startswith("^"):
-        return f"{price:.2f}"
-    return f"${price:.2f}"
+    for s,n in WATCHLIST.items():
 
+        p=get_last_price(s)
+        c=get_daily_change(s)
 
-def safe_send(target: str, text: str, label: str) -> None:
-    try:
-        channel = FREE_CHANNEL if target == "free" else PRO_CHANNEL
-        bot.send_message(channel, text)
-        print(f"{label} sent")
-    except Exception as e:
-        print(f"{label} error: {e}")
+        if p and c!=None:
 
+            rows.append((s,n,c,p))
 
-def compose_free_message(title: str, lines: List[str]) -> str:
-    body = "\n".join([x for x in lines if x]).strip()
-    return f"{title} ({now_label()})\n\n{body}\n\nKup PRO -> /vip"
-
-
-def compose_pro_message(title: str, lines: List[str]) -> str:
-    body = "\n".join([x for x in lines if x]).strip()
-    return (
-        f"{title} ({now_label()})\n\n{body}\n\n"
-        f"GPW Radar PRO\nCena: {PRICE_PLN} PLN / miesiac\n/payment"
-    )
-
-
-def gpw_rows() -> List[Tuple[str, str, float, float]]:
-    rows = []
-    for symbol, name in WATCHLIST.items():
-        price = get_last_price(symbol)
-        change = get_daily_change_pct(symbol)
-        if price is not None and change is not None:
-            rows.append((symbol, name, change, price))
     return rows
 
 
-def top_gainers(limit: int = 10):
-    rows = gpw_rows()
-    rows.sort(key=lambda x: x[2], reverse=True)
-    return rows[:limit]
+def top_gainers():
+
+    rows=gpw_rows()
+    rows.sort(key=lambda x:x[2],reverse=True)
+
+    return rows[:8]
 
 
-def top_losers(limit: int = 10):
-    rows = gpw_rows()
-    rows.sort(key=lambda x: x[2])
-    return rows[:limit]
+def top_losers():
+
+    rows=gpw_rows()
+    rows.sort(key=lambda x:x[2])
+
+    return rows[:8]
 
 
-def volume_spikes(limit: int = 8):
-    rows = []
-    for symbol, name in WATCHLIST.items():
-        ratio = get_volume_spike_ratio(symbol)
-        price = get_last_price(symbol)
-        change = get_daily_change_pct(symbol)
-        if ratio is not None and price is not None and change is not None and ratio >= ALERT_VOLUME_SPIKE:
-            rows.append((symbol, name, ratio, change, price))
-    rows.sort(key=lambda x: x[2], reverse=True)
-    return rows[:limit]
+def volume_spikes():
+
+    rows=[]
+
+    for s,n in WATCHLIST.items():
+
+        r=get_volume_ratio(s)
+        c=get_daily_change(s)
+        p=get_last_price(s)
+
+        if r and r>=ALERT_VOLUME_SPIKE:
+
+            rows.append((s,n,r,c,p))
+
+    rows.sort(key=lambda x:x[2],reverse=True)
+
+    return rows[:6]
 
 
-def breakouts(limit: int = 8):
-    out = []
-    for symbol, name in WATCHLIST.items():
-        price = get_last_price(symbol)
-        change = get_daily_change_pct(symbol)
-        if price is None or change is None:
-            continue
-        high = is_new_high(symbol, 20)
-        low = is_new_low(symbol, 20)
-        if high:
-            out.append(f"{name} | NEW 20D HIGH | {fmt_price(symbol, price)} | {change:+.2f}%")
-        elif low:
-            out.append(f"{name} | NEW 20D LOW | {fmt_price(symbol, price)} | {change:+.2f}%")
-    return out[:limit]
+def alerts():
+
+    out=[]
+
+    for s,n,c,p in gpw_rows():
+
+        r=get_volume_ratio(s) or 1.0
+
+        if c>=ALERT_MOVE_PCT or c<=ALERT_DROP_PCT:
+
+            out.append(f"{n} {c:+.2f}% Vol x{r}")
+
+    return out[:6]
 
 
-def move_alerts(limit: int = 8):
-    out = []
-    for symbol, name, change, price in gpw_rows():
-        ratio = get_volume_spike_ratio(symbol) or 1.0
-        if change >= ALERT_MOVE_PCT or change <= ALERT_DROP_PCT:
-            out.append(f"{name} | {fmt_price(symbol, price)} | {change:+.2f}% | Vol x{ratio:.2f}")
-    return out[:limit]
+# --------------------------
+# MESSAGE BUILDERS
+# --------------------------
+
+def free_pulse():
+
+    rows=top_gainers()[:3]
+
+    text="MARKET PULSE\n\n"
+
+    for s,n,c,p in rows:
+
+        text+=f"{n} {c:+.2f}%\n"
+
+    text+="\nKup PRO -> /vip"
+
+    return text
 
 
-def market_score() -> Tuple[int, str]:
-    rows = gpw_rows()
-    if not rows:
-        return 0, "Brak danych"
-    positives = sum(1 for _, _, c, _ in rows if c > 0)
-    negatives = sum(1 for _, _, c, _ in rows if c < 0)
-    avg = sum(c for _, _, c, _ in rows) / len(rows)
+def pro_gainers():
 
-    score = 5
-    score += 1 if positives > negatives else -1
-    score += 1 if avg > 0.5 else (-1 if avg < -0.5 else 0)
-    score = max(0, min(10, score))
+    rows=top_gainers()
 
-    label = "Strong" if score >= 8 else "Constructive" if score >= 6 else "Mixed" if score >= 4 else "Weak"
-    return score, label
+    text="TOP GAINERS\n\n"
+
+    for s,n,c,p in rows:
+
+        text+=f"{n} {c:+.2f}% {p:.2f} PLN\n"
+
+    return text
 
 
-def macro_rows(limit: int = 5):
-    rows = []
-    for symbol, name in MACRO_SYMBOLS.items():
-        price = get_last_price(symbol)
-        change = get_daily_change_pct(symbol)
-        if price is not None and change is not None:
-            rows.append((symbol, name, change, price))
-    rows.sort(key=lambda x: abs(x[2]), reverse=True)
-    return rows[:limit]
+def pro_losers():
+
+    rows=top_losers()
+
+    text="TOP LOSERS\n\n"
+
+    for s,n,c,p in rows:
+
+        text+=f"{n} {c:+.2f}% {p:.2f} PLN\n"
+
+    return text
 
 
-def build_free_pulse() -> str:
-    score, label = market_score()
-    lines = (
-        ["GPW"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in top_gainers(3)]
-        + ["", "Macro"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in macro_rows(3)]
-        + ["", f"Strength: {score}/10 ({label})"]
-    )
-    return compose_free_message("MARKET PULSE", lines)
+def volume_alert():
 
+    rows=volume_spikes()
 
-def build_pro_gainers() -> str:
-    lines = [f"{name} | {change:+.2f}% | {fmt_price(symbol, price)}" for symbol, name, change, price in top_gainers(8)]
-    return compose_pro_message("TOP GAINERS", lines or ["Brak danych"])
-
-
-def build_pro_losers() -> str:
-    lines = [f"{name} | {change:+.2f}% | {fmt_price(symbol, price)}" for symbol, name, change, price in top_losers(8)]
-    return compose_pro_message("TOP LOSERS", lines or ["Brak danych"])
-
-
-def build_volume_spike() -> Optional[str]:
-    rows = volume_spikes(8)
     if not rows:
         return None
-    lines = [f"{name} | Vol x{ratio:.2f} | {change:+.2f}% | {fmt_price(symbol, price)}" for symbol, name, ratio, change, price in rows]
-    return compose_pro_message("VOLUME SPIKE", lines)
+
+    text="VOLUME SPIKE\n\n"
+
+    for s,n,r,c,p in rows:
+
+        text+=f"{n} Vol x{r} {c:+.2f}%\n"
+
+    return text
 
 
-def build_breakouts() -> Optional[str]:
-    rows = breakouts(8)
+def move_alert():
+
+    rows=alerts()
+
     if not rows:
         return None
-    return compose_pro_message("BREAKOUTS", rows)
+
+    text="MOVE ALERT\n\n"
+
+    for r in rows:
+
+        text+=r+"\n"
+
+    return text
 
 
-def build_alerts() -> Optional[str]:
-    rows = move_alerts(8)
-    if not rows:
-        return None
-    return compose_pro_message("MOVE ALERTS", rows)
+def morning_brief():
+
+    text="MORNING BRIEF\n\n"
+
+    for s,n,c,p in top_gainers()[:5]:
+
+        text+=f"{n} {c:+.2f}%\n"
+
+    return text
 
 
-def build_morning_brief() -> str:
-    score, label = market_score()
-    lines = (
-        ["Top Gainers"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in top_gainers(5)]
-        + ["", "Top Losers"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in top_losers(5)]
-        + ["", "Macro Focus"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in macro_rows(5)]
-        + ["", f"Market Strength: {score}/10 ({label})"]
-    )
-    return compose_pro_message("MORNING BRIEF", lines)
+def market_close():
+
+    text="MARKET CLOSE\n\n"
+
+    for s,n,c,p in top_gainers()[:3]:
+
+        text+=f"Top: {n} {c:+.2f}%\n"
+
+    for s,n,c,p in top_losers()[:3]:
+
+        text+=f"Weak: {n} {c:+.2f}%\n"
+
+    return text
 
 
-def build_market_close() -> str:
-    score, label = market_score()
-    lines = (
-        ["Best of day"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in top_gainers(5)]
-        + ["", "Worst of day"]
-        + [f"{name} {change:+.2f}%" for _, name, change, _ in top_losers(5)]
-        + ["", f"Closing Strength: {score}/10 ({label})"]
-    )
-    return compose_pro_message("MARKET CLOSE", lines)
+# --------------------------
+# TELEGRAM COMMANDS
+# --------------------------
+
+@bot.message_handler(commands=['start'])
+def start(m):
+
+    bot.reply_to(m,
+    "GPW Radar FINAL 1.0\n\n"
+    "/pulse\n"
+    "/gainers\n"
+    "/losers\n"
+    "/volume\n"
+    "/alerts\n"
+    "/brief\n"
+    "/vip")
 
 
-@bot.message_handler(commands=["start"])
-def cmd_start(message):
-    bot.reply_to(
-        message,
-        "GPW Radar PRO11\n\n"
-        "/pulse\n/gainers\n/losers\n/breakouts\n/volume\n/alerts\n/vip\n/payment"
-    )
+@bot.message_handler(commands=['pulse'])
+def pulse(m):
+
+    bot.reply_to(m,free_pulse())
 
 
-@bot.message_handler(commands=["pulse"])
-def cmd_pulse(message):
-    bot.reply_to(message, build_free_pulse())
+@bot.message_handler(commands=['gainers'])
+def gainers(m):
+
+    bot.reply_to(m,pro_gainers())
 
 
-@bot.message_handler(commands=["gainers"])
-def cmd_gainers(message):
-    bot.reply_to(message, build_pro_gainers())
+@bot.message_handler(commands=['losers'])
+def losers(m):
+
+    bot.reply_to(m,pro_losers())
 
 
-@bot.message_handler(commands=["losers"])
-def cmd_losers(message):
-    bot.reply_to(message, build_pro_losers())
+@bot.message_handler(commands=['volume'])
+def volume(m):
+
+    txt=volume_alert()
+
+    bot.reply_to(m,txt or "Brak volume spike.")
 
 
-@bot.message_handler(commands=["breakouts"])
-def cmd_breakouts(message):
-    bot.reply_to(message, build_breakouts() or "Brak breakoutow teraz.")
+@bot.message_handler(commands=['alerts'])
+def alert(m):
+
+    txt=move_alert()
+
+    bot.reply_to(m,txt or "Brak alertów.")
 
 
-@bot.message_handler(commands=["volume"])
-def cmd_volume(message):
-    bot.reply_to(message, build_volume_spike() or "Brak volume spike teraz.")
+@bot.message_handler(commands=['brief'])
+def brief(m):
+
+    bot.reply_to(m,morning_brief())
 
 
-@bot.message_handler(commands=["alerts"])
-def cmd_alerts(message):
-    bot.reply_to(message, build_alerts() or "Brak alertow ruchu teraz.")
+@bot.message_handler(commands=['vip'])
+def vip(m):
+
+    bot.reply_to(m,
+    f"GPW Radar PRO\n\nCena: {PRICE_PLN} PLN / miesiac\n\n"
+    "Kontakt prywatny po dostęp.")
 
 
-@bot.message_handler(commands=["vip"])
-def cmd_vip(message):
-    bot.reply_to(
-        message,
-        f"GPW Radar PRO\n\nCena: {PRICE_PLN} PLN / miesiac\n\n"
-        "Co dostajesz:\n"
-        "- Top Gainers / Losers\n"
-        "- Breakouts\n"
-        "- Volume Spike\n"
-        "- Move Alerts\n"
-        "- Morning Brief\n"
-        "- Market Close\n\n"
-        "/payment"
-    )
+# --------------------------
+# AUTO SCHEDULER
+# --------------------------
 
+def run_every(minutes,fn):
 
-@bot.message_handler(commands=["payment"])
-def cmd_payment(message):
-    bot.reply_to(message, "Platnosc: BLIK / przelew / kontakt prywatny")
-
-
-def run_every(minutes: int, fn, label: str):
     while True:
+
         try:
             fn()
         except Exception as e:
-            print(f"{label} error: {e}")
-        time.sleep(minutes * 60)
+            print("ERROR",e)
+
+        time.sleep(minutes*60)
 
 
-def run_daily(hour: int, minute: int, fn, label: str):
-    last_stamp = None
+def run_daily(hour,minute,fn):
+
+    last=None
+
     while True:
-        try:
-            now = datetime.now()
-            stamp = now.strftime("%Y-%m-%d %H:%M")
-            if now.hour == hour and now.minute == minute and stamp != last_stamp:
+
+        now=datetime.now()
+
+        stamp=now.strftime("%Y-%m-%d %H:%M")
+
+        if now.hour==hour and now.minute==minute and stamp!=last:
+
+            try:
                 fn()
-                last_stamp = stamp
-        except Exception as e:
-            print(f"{label} error: {e}")
+                last=stamp
+            except Exception as e:
+                print("ERROR",e)
+
         time.sleep(20)
 
 
-def auto_free_pulse():
-    safe_send("free", build_free_pulse(), "free_pulse")
+# --------------------------
+# AUTO POSTS
+# --------------------------
+
+def auto_free():
+
+    bot.send_message(FREE_CHANNEL,free_pulse())
 
 
-def auto_pro_gainers():
-    safe_send("pro", build_pro_gainers(), "pro_gainers")
+def auto_gainers():
 
-
-def auto_breakouts():
-    txt = build_breakouts()
-    if txt:
-        safe_send("pro", txt, "breakouts")
-
-
-def auto_volume():
-    txt = build_volume_spike()
-    if txt:
-        safe_send("pro", txt, "volume")
+    bot.send_message(PRO_CHANNEL,pro_gainers())
 
 
 def auto_alerts():
-    txt = build_alerts()
+
+    txt=move_alert()
+
     if txt:
-        safe_send("pro", txt, "alerts")
+
+        bot.send_message(PRO_CHANNEL,txt)
+
+
+def auto_volume():
+
+    txt=volume_alert()
+
+    if txt:
+
+        bot.send_message(PRO_CHANNEL,txt)
 
 
 def auto_morning():
-    safe_send("pro", build_morning_brief(), "morning")
+
+    bot.send_message(PRO_CHANNEL,morning_brief())
 
 
 def auto_close():
-    safe_send("pro", build_market_close(), "close")
+
+    bot.send_message(PRO_CHANNEL,market_close())
 
 
-threading.Thread(target=run_every, args=(FREE_PULSE_INTERVAL_MIN, auto_free_pulse, "free_pulse_thread"), daemon=True).start()
-threading.Thread(target=run_every, args=(PRO_PULSE_INTERVAL_MIN, auto_pro_gainers, "pro_gainers_thread"), daemon=True).start()
-threading.Thread(target=run_every, args=(BREAKOUT_INTERVAL_MIN, auto_breakouts, "breakouts_thread"), daemon=True).start()
-threading.Thread(target=run_every, args=(VOLUME_INTERVAL_MIN, auto_volume, "volume_thread"), daemon=True).start()
-threading.Thread(target=run_every, args=(ALERT_INTERVAL_MIN, auto_alerts, "alerts_thread"), daemon=True).start()
-threading.Thread(target=run_daily, args=(MORNING_BRIEF_HOUR, MORNING_BRIEF_MINUTE, auto_morning, "morning_thread"), daemon=True).start()
-threading.Thread(target=run_daily, args=(MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, auto_close, "close_thread"), daemon=True).start()
+threading.Thread(target=run_every,args=(FREE_PULSE_INTERVAL_MIN,auto_free),daemon=True).start()
+threading.Thread(target=run_every,args=(PRO_GAINERS_INTERVAL_MIN,auto_gainers),daemon=True).start()
+threading.Thread(target=run_every,args=(ALERT_INTERVAL_MIN,auto_alerts),daemon=True).start()
+threading.Thread(target=run_every,args=(VOLUME_INTERVAL_MIN,auto_volume),daemon=True).start()
 
+threading.Thread(target=run_daily,args=(MORNING_BRIEF_HOUR,MORNING_BRIEF_MINUTE,auto_morning),daemon=True).start()
+threading.Thread(target=run_daily,args=(MARKET_CLOSE_HOUR,MARKET_CLOSE_MINUTE,auto_close),daemon=True).start()
+
+# --------------------------
+# BOT LOOP
+# --------------------------
 
 while True:
+
     try:
-        print("GPW Radar PRO11 bot started...")
-        bot.infinity_polling(timeout=60, long_polling_timeout=60)
+
+        print("GPW Radar FINAL 1.0 running")
+
+        bot.infinity_polling(timeout=60,long_polling_timeout=60)
+
     except Exception as e:
-        print("BOT ERROR:", e)
-        print("Restart in 10 seconds...")
+
+        print("BOT ERROR",e)
+
         time.sleep(10)
