@@ -1,5 +1,4 @@
 pyTelegramBotAPI
-pandas
 yfinance
-requests
-schedule
+pandas
+numpy
