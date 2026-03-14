@@ -12,8 +12,9 @@ from typing import Any, Dict, List, Optional
 
 import requests
 import telebot
+import os
 
-TOKEN = "8215323216:AAESnVjkOZ20kevopsILsVcUBEPnt7i0fiQ"
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 FREE_CHANNEL = "@AlphaRadarSignals"
 VIP_CHANNEL = "@AlphaRadarVIP"
