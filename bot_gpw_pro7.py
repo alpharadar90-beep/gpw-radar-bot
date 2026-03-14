@@ -475,7 +475,12 @@ def cmd_heatmap(message): bot.reply_to(message, build_heatmap())
 @bot.message_handler(commands=["breakouts"])
 def cmd_breakouts(message): bot.reply_to(message, build_breakouts())
 @bot.message_handler(commands=["alerts"])
-def cmd_alerts(message): bot.reply_to(message, build_move_alerts() or "Brak ruchow powyzej progow alertu.")
+def cmd_alerts(message):
+    reply = build_move_alerts()
+    bot.reply_to(message, reply)
+
+    x_post = generate_x_post(reply)
+    bot.send_message(ADMIN_ID, f"POST NA X:\n{x_post}")
 @bot.message_handler(commands=["stats"])
 def cmd_stats(message): bot.reply_to(message, build_daily_stats())
 @bot.message_handler(commands=["weekly"])
