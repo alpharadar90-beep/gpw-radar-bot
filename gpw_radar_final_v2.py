@@ -249,6 +249,17 @@ def scheduler_loop():
         except Exception as e:
             notify_admin(f"Scheduler error: {e}")
             time.sleep(60)
+@bot.message_handler(commands=['start'])
+def start_cmd(message):
+    bot.send_message(message.chat.id, "Bot działa ✅")
+
+@bot.message_handler(commands=['pulse'])
+def pulse_cmd(message):
+    bot.send_message(message.chat.id, "Pulse test OK 🚀")
+
+@bot.message_handler(commands=['alerts'])
+def alerts_cmd(message):
+    bot.send_message(message.chat.id, "Alerts działają")
 
 def run():
     # usunięcie webhooka aby uniknąć konfliktu
