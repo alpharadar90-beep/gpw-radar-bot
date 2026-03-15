@@ -7,8 +7,9 @@ from typing import Dict, List, Optional, Tuple
 
 import telebot
 import yfinance as yf
+import os
 
-TOKEN = "8701495625:AAH1dqGAwNfBpjaY1SWKUXw6qdAk36t8nH4"
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 FREE_CHANNEL = -1003547751553
 PRO_CHANNEL = -1003547751553
