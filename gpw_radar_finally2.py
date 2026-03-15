@@ -261,8 +261,7 @@ def run():
         pass
 
     threading.Thread(target=scheduler_loop, daemon=True).start()
-
-    while True:
+ 
         try:
             print("BEFORE POLLING")
             bot.infinity_polling(
