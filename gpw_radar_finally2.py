@@ -1,3 +1,4 @@
+print("RADAR STARTED")
 # -*- coding: utf-8 -*-
 import os
 import time
