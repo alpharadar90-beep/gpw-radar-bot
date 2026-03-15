@@ -19,4 +19,4 @@ def pulse_cmd(message):
     bot.reply_to(message, "Pulse działa ✅")
 
 print("BOT STARTED")
-bot.infinity_polling(skip_pending=True)
+bot.infinity_polling()
