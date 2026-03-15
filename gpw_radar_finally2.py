@@ -272,6 +272,15 @@ def run():
         print(f"POLLING ERROR: {e}")
         notify_admin(f"Polling error: {e}")
 
+@bot.message_handler(commands=["start"])
+def test_start(message):
+    print("START RECEIVED")
+    bot.reply_to(message, "Start działa ✅")
+
+@bot.message_handler(commands=["pulse"])
+def test_pulse(message):
+    print("PULSE RECEIVED")
+    bot.reply_to(message, "Pulse działa ✅")
 
 if __name__ == "__main__":
     run()
