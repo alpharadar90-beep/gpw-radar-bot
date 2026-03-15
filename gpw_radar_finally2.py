@@ -253,7 +253,6 @@ def scheduler_loop():
             time.sleep(60)
 
 def run():
-    
     try:
         bot.remove_webhook()
         time.sleep(2)
@@ -261,17 +260,18 @@ def run():
         pass
 
     threading.Thread(target=scheduler_loop, daemon=True).start()
- 
+
     try:
-            print("BEFORE POLLING")
-            bot.infinity_polling(
-                timeout=60,
-                long_polling_timeout=60,
-                skip_pending=True
-            )
-        except Exception as e:
-            print(f"POLLING ERROR: {e}")
-            notify_admin(f"Polling error: {e}")
-            
+        print("BEFORE POLLING")
+        bot.infinity_polling(
+            timeout=60,
+            long_polling_timeout=60,
+            skip_pending=True
+        )
+    except Exception as e:
+        print(f"POLLING ERROR: {e}")
+        notify_admin(f"Polling error: {e}")
+
+
 if __name__ == "__main__":
     run()
