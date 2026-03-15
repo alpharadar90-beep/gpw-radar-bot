@@ -262,7 +262,7 @@ def run():
 
     threading.Thread(target=scheduler_loop, daemon=True).start()
  
-        try:
+    try:
             print("BEFORE POLLING")
             bot.infinity_polling(
                 timeout=60,
