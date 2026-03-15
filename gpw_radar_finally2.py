@@ -20,6 +20,7 @@ if not TOKEN:
     raise RuntimeError("Brak TELEGRAM_TOKEN w Railway Variables")
 
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
+print("BOT OBJECT OK")
 
 GPW: Dict[str, str] = {
     "KGHM": "KGH.WA",
@@ -263,12 +264,14 @@ def run():
 
     while True:
         try:
+            print("BEFORE POLLING")
             bot.infinity_polling(
                 timeout=60,
                 long_polling_timeout=60,
                 skip_pending=True
             )
         except Exception as e:
+            print(f"POLLING ERROR: {e}")
             notify_admin(f"Polling error: {e}")
             time.sleep(10)
 if __name__ == "__main__":
