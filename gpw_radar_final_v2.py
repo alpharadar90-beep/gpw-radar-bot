@@ -251,13 +251,25 @@ def scheduler_loop():
             time.sleep(60)
 
 def run():
+    # usunięcie webhooka aby uniknąć konfliktu
+    try:
+        bot.remove_webhook()
+        time.sleep(2)
+    except Exception:
+        pass
+
     threading.Thread(target=scheduler_loop, daemon=True).start()
+
     while True:
         try:
-            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+            bot.infinity_polling(
+                timeout=60,
+                long_polling_timeout=60,
+                skip_pending=True
+            )
         except Exception as e:
             notify_admin(f"Polling error: {e}")
-            time.sleep(5)
+            time.sleep(10)
 
 if __name__ == "__main__":
     run()
