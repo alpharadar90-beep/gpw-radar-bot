@@ -25,4 +25,12 @@ def echo(message):
     bot.reply_to(message, f"Odebrałem: {message.text}")
 
 print("BEFORE POLLING")
-bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=60)
+import time
+
+while True:
+    try:
+        print("START POLLING")
+        bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=60)
+    except Exception as e:
+        print(f"ERROR: {e}")
+        time.sleep(5)
